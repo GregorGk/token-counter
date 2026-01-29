@@ -35,10 +35,10 @@ pip install -e .
 
 ```bash
 # Count tokens for text
-token-counter -t "Hello, world!" -m gpt-5
+token-counter -t 'Hello, world!' -m gpt-5
 
 # Count tokens for Claude Opus 4.5
-token-counter -t "Hello, world!" -m claude-opus-4.5
+token-counter -t 'Hello, world!' -m claude-opus-4.5
 
 # Count tokens from a file
 token-counter -f input.txt -m gemini-3-flash
@@ -47,7 +47,7 @@ token-counter -f input.txt -m gemini-3-flash
 token-counter -F file1.txt -F file2.txt -m gpt-4o-mini
 
 # Count tokens from stdin
-echo "Hello, world!" | token-counter -m gpt-5
+echo 'Hello, world!' | token-counter -m gpt-5
 
 # Get cost estimate with expected output tokens
 token-counter -t "Your text here" -m gpt-5 -c -o 1000
