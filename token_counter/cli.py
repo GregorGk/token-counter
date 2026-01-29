@@ -3,7 +3,7 @@
 import click
 import sys
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -14,6 +14,20 @@ from .models import SupportedModels, Provider
 
 
 console = Console()
+
+# Default latest models for 2026
+DEFAULT_LATEST_MODELS = [
+    # OpenAI GPT-5 series
+    'gpt-5',
+    'gpt-5.2',
+    # Anthropic Claude 4.5 series
+    'claude-opus-4.5',
+    'claude-sonnet-4.5',
+    'claude-haiku-4.5',
+    # Google Gemini 3 series
+    'gemini-3-pro',
+    'gemini-3-flash',
+]
 
 
 def read_text_from_source(text: Optional[str], file: Optional[str],
@@ -63,8 +77,8 @@ def format_cost(cost: float) -> str:
 @click.option('--text', '-t', help='Text to count tokens for')
 @click.option('--file', '-f', help='File to read text from')
 @click.option('--files', '-F', multiple=True, help='Multiple files to process')
-@click.option('--model', '-m', multiple=True, default=['gpt-4'],
-              help='Model(s) to use for token counting. Can be specified multiple times (default: gpt-4)')
+@click.option('--model', '-m', default='',
+              help='Comma-separated list of models (e.g., gpt-4,claude-3-opus). If not specified, shows all latest models.')
 @click.option('--list-models', is_flag=True, help='List all supported models')
 @click.option('--estimate-cost', '-c', is_flag=True,
               help='Estimate cost for processing the text')
@@ -76,7 +90,7 @@ def format_cost(cost: float) -> str:
 @click.option('--format', type=click.Choice(['text', 'json', 'table']),
               default='text', help='Output format')
 def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
-         model: tuple, list_models: bool, estimate_cost: bool,
+         model: str, list_models: bool, estimate_cost: bool,
          output_tokens: Optional[int], check_limit: bool,
          verbose: bool, format: str):
     """Token Counter - Count tokens for various LLM providers.
@@ -92,12 +106,16 @@ def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
     token-counter -f document.txt -m claude-3-opus
 
     \b
-    # Compare multiple models
-    token-counter -t "Your text here" -m gpt-4 -m claude-3-opus -m gemini-3-pro
+    # Compare multiple models (comma-separated)
+    token-counter -t "Your text here" -m gpt-4,claude-3-opus,gemini-3-pro
+
+    \b
+    # Show all latest models (no -m flag)
+    token-counter -t "Your text here"
 
     \b
     # Estimate costs across models
-    token-counter -t "Your text here" -m gpt-4 -m gpt-4-turbo -c
+    token-counter -t "Your text here" -m gpt-4,gpt-4-turbo -c
 
     \b
     # Check token limit
@@ -105,7 +123,7 @@ def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
 
     \b
     # Process multiple files with multiple models
-    token-counter -F file1.txt -F file2.txt -m gpt-4 -m claude-3-haiku
+    token-counter -F file1.txt -F file2.txt -m gpt-4,claude-3-haiku
     """
     if list_models:
         show_models_list()
@@ -116,7 +134,13 @@ def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
         texts = read_text_from_source(text, file, files)
 
         # Process each model
-        models_to_process = model if model else ('gpt-4',)
+        if model:
+            # Parse comma-separated models
+            models_to_process = [m.strip() for m in model.split(',') if m.strip()]
+        else:
+            # Use all latest models by default
+            models_to_process = DEFAULT_LATEST_MODELS
+
         results = {}
 
         for model_name in models_to_process:

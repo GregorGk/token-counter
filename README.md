@@ -9,6 +9,8 @@ A comprehensive command-line tool for counting tokens in text for various Large 
 - Count tokens for Google Gemini models (Gemini 3 Pro, Flash)
 - Count tokens for Mistral AI models (Medium 3, Small 3.1, OCR)
 - Count tokens for Cohere models (Command, Command-R, Command-Light)
+- **Compare multiple models simultaneously**
+- **Automatically shows all latest models when no model specified**
 - Estimate API costs based on token usage with 2026 pricing
 - Support for multiple encoding methods
 - Read from files or stdin
@@ -40,11 +42,20 @@ token-counter -t 'Hello, world!' -m gpt-5
 # Count tokens for Claude Opus 4.5
 token-counter -t 'Hello, world!' -m claude-opus-4.5
 
+# Compare multiple models (comma-separated)
+token-counter -t 'Hello, world!' -m gpt-5,claude-opus-4.5,gemini-3-pro
+
+# Show all latest models (no -m flag) - displays GPT-5, Claude 4.5, Gemini 3
+token-counter -t 'Hello, world!'
+
+# Compare costs across models
+token-counter -t "Your text here" -m gpt-5,gpt-4o,claude-haiku-4.5 -c
+
 # Count tokens from a file
 token-counter -f input.txt -m gemini-3-flash
 
-# Count tokens from multiple files
-token-counter -F file1.txt -F file2.txt -m gpt-4o-mini
+# Count tokens from multiple files with multiple models
+token-counter -F file1.txt -F file2.txt -m gpt-4o-mini,claude-haiku-4.5
 
 # Count tokens from stdin
 echo 'Hello, world!' | token-counter -m gpt-5
@@ -59,8 +70,8 @@ token-counter -f large_document.txt -m claude-sonnet-4.5 -l
 token-counter --list-models
 
 # Output in different formats
-token-counter -t "Hello" -m gpt-5 --format json
-token-counter -t "Hello" -m gpt-5 --format table
+token-counter -t "Hello" -m gpt-5,claude-opus-4.5 --format json
+token-counter -t "Hello" -m gpt-5,claude-opus-4.5 --format table
 ```
 
 ## Supported Models (2026 Latest)
@@ -141,6 +152,13 @@ This tool includes the latest models and pricing as of January 29, 2026:
 - **Cohere**: Added Command series with RAG-optimized variants
 
 ## Changelog
+
+### v0.3.1 (January 29, 2026)
+- Added support for multiple model comparison:
+  - Use comma-separated model names (e.g., `-m gpt-5,claude-opus-4.5`)
+  - Automatically shows all latest models when no model specified
+  - Enhanced table and JSON output formats for model comparison
+- Updated README with multiple model examples
 
 ### v0.3.0 (January 29, 2026)
 - Added support for latest 2026 models:
