@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="token-counter",
-    version="0.2.0",
+    version="0.3.0",
     author="Your Name",
     author_email="your.email@example.com",
-    description="A CLI tool for counting tokens for various LLM providers",
+    description="A CLI tool for counting tokens for various LLM providers (2026 models)",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
