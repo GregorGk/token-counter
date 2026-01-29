@@ -3,7 +3,7 @@
 import click
 import sys
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -63,8 +63,8 @@ def format_cost(cost: float) -> str:
 @click.option('--text', '-t', help='Text to count tokens for')
 @click.option('--file', '-f', help='File to read text from')
 @click.option('--files', '-F', multiple=True, help='Multiple files to process')
-@click.option('--model', '-m', default='gpt-4',
-              help='Model to use for token counting (default: gpt-4)')
+@click.option('--model', '-m', multiple=True, default=['gpt-4'],
+              help='Model(s) to use for token counting. Can be specified multiple times (default: gpt-4)')
 @click.option('--list-models', is_flag=True, help='List all supported models')
 @click.option('--estimate-cost', '-c', is_flag=True,
               help='Estimate cost for processing the text')
@@ -76,7 +76,7 @@ def format_cost(cost: float) -> str:
 @click.option('--format', type=click.Choice(['text', 'json', 'table']),
               default='text', help='Output format')
 def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
-         model: str, list_models: bool, estimate_cost: bool,
+         model: tuple, list_models: bool, estimate_cost: bool,
          output_tokens: Optional[int], check_limit: bool,
          verbose: bool, format: str):
     """Token Counter - Count tokens for various LLM providers.
@@ -92,16 +92,20 @@ def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
     token-counter -f document.txt -m claude-3-opus
 
     \b
-    # Estimate costs
-    token-counter -t "Your text here" -m gpt-4 -c
+    # Compare multiple models
+    token-counter -t "Your text here" -m gpt-4 -m claude-3-opus -m gemini-3-pro
+
+    \b
+    # Estimate costs across models
+    token-counter -t "Your text here" -m gpt-4 -m gpt-4-turbo -c
 
     \b
     # Check token limit
     token-counter -f large_document.txt -m gpt-3.5-turbo -l
 
     \b
-    # Process multiple files
-    token-counter -F file1.txt -F file2.txt -m gpt-4
+    # Process multiple files with multiple models
+    token-counter -F file1.txt -F file2.txt -m gpt-4 -m claude-3-haiku
     """
     if list_models:
         show_models_list()
@@ -111,91 +115,156 @@ def main(text: Optional[str], file: Optional[str], files: Optional[List[str]],
         # Read text from various sources
         texts = read_text_from_source(text, file, files)
 
-        # Initialize counter
-        counter = TokenCounter(model)
+        # Process each model
+        models_to_process = model if model else ('gpt-4',)
+        results = {}
 
-        # Count tokens
-        total_tokens = sum(counter.count_tokens(t) for t in texts)
+        for model_name in models_to_process:
+            # Initialize counter for this model
+            counter = TokenCounter(model_name)
+
+            # Count tokens
+            total_tokens = sum(counter.count_tokens(t) for t in texts)
+
+            # Store results for this model
+            results[model_name] = {
+                'counter': counter,
+                'total_tokens': total_tokens
+            }
 
         if format == 'json':
             import json
-            result = {"model": model, "total_tokens": total_tokens}
+            output = {"models": {}}
 
-            if estimate_cost:
-                cost_data = counter.estimate_cost(texts,
-                                                 include_output=bool(output_tokens),
-                                                 output_tokens=output_tokens)
-                result.update(cost_data)
+            for model_name, data in results.items():
+                model_result = {"total_tokens": data['total_tokens']}
 
-            if check_limit:
-                limit_data = counter.check_token_limit(texts)
-                result.update(limit_data)
+                if estimate_cost:
+                    cost_data = data['counter'].estimate_cost(texts,
+                                                     include_output=bool(output_tokens),
+                                                     output_tokens=output_tokens)
+                    model_result.update(cost_data)
 
-            console.print(json.dumps(result, indent=2))
+                if check_limit:
+                    limit_data = data['counter'].check_token_limit(texts)
+                    model_result.update(limit_data)
+
+                output["models"][model_name] = model_result
+
+            console.print(json.dumps(output, indent=2))
 
         elif format == 'table':
-            table = Table(title=f"Token Count Analysis - {model}")
-            table.add_column("Metric", style="cyan")
-            table.add_column("Value", style="green")
+            if len(results) == 1:
+                # Single model - use original format
+                model_name = list(results.keys())[0]
+                data = results[model_name]
+                table = Table(title=f"Token Count Analysis - {model_name}")
+                table.add_column("Metric", style="cyan")
+                table.add_column("Value", style="green")
 
-            table.add_row("Model", model)
-            table.add_row("Total Tokens", str(total_tokens))
+                table.add_row("Model", model_name)
+                table.add_row("Total Tokens", str(data['total_tokens']))
 
-            if estimate_cost:
-                cost_data = counter.estimate_cost(texts,
-                                                 include_output=bool(output_tokens),
-                                                 output_tokens=output_tokens)
-                table.add_row("Input Cost", format_cost(cost_data['input_cost']))
+                if estimate_cost:
+                    cost_data = data['counter'].estimate_cost(texts,
+                                                     include_output=bool(output_tokens),
+                                                     output_tokens=output_tokens)
+                    table.add_row("Input Cost", format_cost(cost_data['input_cost']))
 
-                if 'output_cost' in cost_data:
-                    table.add_row("Output Tokens", str(cost_data['output_tokens']))
-                    table.add_row("Output Cost", format_cost(cost_data['output_cost']))
-                    table.add_row("Total Cost", format_cost(cost_data['total_cost']))
+                    if 'output_cost' in cost_data:
+                        table.add_row("Output Tokens", str(cost_data['output_tokens']))
+                        table.add_row("Output Cost", format_cost(cost_data['output_cost']))
+                        table.add_row("Total Cost", format_cost(cost_data['total_cost']))
 
-            if check_limit:
-                limit_data = counter.check_token_limit(texts)
-                table.add_row("Token Limit", str(limit_data['limit']))
-                table.add_row("Usage", f"{limit_data['percentage_used']}%")
-                if limit_data['exceeds_limit']:
-                    table.add_row("Status", "[red]EXCEEDS LIMIT[/red]")
-                else:
-                    table.add_row("Status", "[green]Within Limit[/green]")
+                if check_limit:
+                    limit_data = data['counter'].check_token_limit(texts)
+                    table.add_row("Token Limit", str(limit_data['limit']))
+                    table.add_row("Usage", f"{limit_data['percentage_used']}%")
+                    if limit_data['exceeds_limit']:
+                        table.add_row("Status", "[red]EXCEEDS LIMIT[/red]")
+                    else:
+                        table.add_row("Status", "[green]Within Limit[/green]")
+            else:
+                # Multiple models - comparison table
+                table = Table(title="Token Count Analysis - Model Comparison")
+                table.add_column("Model", style="cyan")
+                table.add_column("Total Tokens", style="green")
+
+                if estimate_cost:
+                    table.add_column("Input Cost", style="yellow")
+                    if output_tokens:
+                        table.add_column("Output Cost", style="yellow")
+                        table.add_column("Total Cost", style="magenta")
+
+                if check_limit:
+                    table.add_column("Token Limit", style="blue")
+                    table.add_column("Usage %", style="blue")
+                    table.add_column("Status", style="blue")
+
+                for model_name, data in sorted(results.items()):
+                    row = [model_name, str(data['total_tokens'])]
+
+                    if estimate_cost:
+                        cost_data = data['counter'].estimate_cost(texts,
+                                                         include_output=bool(output_tokens),
+                                                         output_tokens=output_tokens)
+                        row.append(format_cost(cost_data['input_cost']))
+                        if output_tokens:
+                            row.append(format_cost(cost_data['output_cost']))
+                            row.append(format_cost(cost_data['total_cost']))
+
+                    if check_limit:
+                        limit_data = data['counter'].check_token_limit(texts)
+                        row.append(str(limit_data['limit']))
+                        row.append(f"{limit_data['percentage_used']}%")
+                        if limit_data['exceeds_limit']:
+                            row.append("[red]EXCEEDS[/red]")
+                        else:
+                            row.append("[green]OK[/green]")
+
+                    table.add_row(*row)
 
             console.print(table)
 
         else:  # text format
-            # Basic token count
-            console.print(f"[cyan]Model:[/cyan] {model}")
-            console.print(f"[cyan]Total tokens:[/cyan] {total_tokens:,}")
-
             if verbose and len(texts) > 1:
                 console.print(f"[cyan]Files processed:[/cyan] {len(texts)}")
 
-            # Cost estimation
-            if estimate_cost:
-                cost_data = counter.estimate_cost(texts,
-                                                 include_output=bool(output_tokens),
-                                                 output_tokens=output_tokens)
-                console.print(f"\n[yellow]Cost Estimation:[/yellow]")
-                console.print(f"  Input tokens: {cost_data['input_tokens']:,}")
-                console.print(f"  Input cost: {format_cost(cost_data['input_cost'])}")
-
-                if 'output_cost' in cost_data:
-                    console.print(f"  Output tokens: {cost_data['output_tokens']:,}")
-                    console.print(f"  Output cost: {format_cost(cost_data['output_cost'])}")
-                    console.print(f"  [bold]Total cost: {format_cost(cost_data['total_cost'])}[/bold]")
-
-            # Token limit check
-            if check_limit:
-                limit_data = counter.check_token_limit(texts)
-                console.print(f"\n[yellow]Token Limit Check:[/yellow]")
-                console.print(f"  Model limit: {limit_data['limit']:,} tokens")
-                console.print(f"  Usage: {limit_data['percentage_used']}%")
-
-                if limit_data['exceeds_limit']:
-                    console.print("  [red bold]⚠ Text exceeds model token limit![/red bold]")
+            for i, (model_name, data) in enumerate(sorted(results.items())):
+                if len(results) > 1:
+                    if i > 0:
+                        console.print()  # Add spacing between models
+                    console.print(f"[bold cyan]--- {model_name} ---[/bold cyan]")
                 else:
-                    console.print(f"  [green]✓ Within limit[/green] ({limit_data['tokens']:,}/{limit_data['limit']:,})")
+                    console.print(f"[cyan]Model:[/cyan] {model_name}")
+
+                console.print(f"[cyan]Total tokens:[/cyan] {data['total_tokens']:,}")
+
+                # Cost estimation
+                if estimate_cost:
+                    cost_data = data['counter'].estimate_cost(texts,
+                                                     include_output=bool(output_tokens),
+                                                     output_tokens=output_tokens)
+                    console.print(f"\n[yellow]Cost Estimation:[/yellow]")
+                    console.print(f"  Input tokens: {cost_data['input_tokens']:,}")
+                    console.print(f"  Input cost: {format_cost(cost_data['input_cost'])}")
+
+                    if 'output_cost' in cost_data:
+                        console.print(f"  Output tokens: {cost_data['output_tokens']:,}")
+                        console.print(f"  Output cost: {format_cost(cost_data['output_cost'])}")
+                        console.print(f"  [bold]Total cost: {format_cost(cost_data['total_cost'])}[/bold]")
+
+                # Token limit check
+                if check_limit:
+                    limit_data = data['counter'].check_token_limit(texts)
+                    console.print(f"\n[yellow]Token Limit Check:[/yellow]")
+                    console.print(f"  Model limit: {limit_data['limit']:,} tokens")
+                    console.print(f"  Usage: {limit_data['percentage_used']}%")
+
+                    if limit_data['exceeds_limit']:
+                        console.print("  [red bold]⚠ Text exceeds model token limit![/red bold]")
+                    else:
+                        console.print(f"  [green]✓ Within limit[/green] ({limit_data['tokens']:,}/{limit_data['limit']:,})")
 
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
