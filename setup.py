@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="token-counter",
-    version="0.1.0",
+    version="0.2.0",
     author="Your Name",
     author_email="your.email@example.com",
     description="A CLI tool for counting tokens for various LLM providers",
@@ -31,6 +31,7 @@ setup(
     entry_points={
         "console_scripts": [
             "token-counter=token_counter.cli:main",
+            "count-tokens-for-file=count_tokens_for_file:main",
         ],
     },
     python_requires=">=3.8",

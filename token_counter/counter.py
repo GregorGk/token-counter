@@ -42,6 +42,8 @@ class TokenCounter:
             return self._count_openai_tokens(text)
         elif self.model_config.provider == Provider.ANTHROPIC:
             return self._count_anthropic_tokens(text)
+        elif self.model_config.provider == Provider.GOOGLE:
+            return self._count_google_tokens(text)
         else:
             raise ValueError(f"Unknown provider: {self.model_config.provider}")
 
@@ -82,6 +84,23 @@ class TokenCounter:
         # Use a weighted average of word count and character count
         # This gives a better approximation than just characters
         estimated_tokens = int((len(words) * 1.3) + (chars / 4)) // 2
+
+        return estimated_tokens
+
+    def _count_google_tokens(self, text: str) -> int:
+        """Count tokens for Google Gemini models.
+
+        Google uses a different tokenization approach compared to OpenAI.
+        This is an approximation based on common patterns.
+        """
+        # For Gemini models, we use a similar approximation
+        # Google's tokenization is generally more efficient than GPT models
+        words = text.split()
+        chars = len(text)
+
+        # Gemini typically uses fewer tokens than GPT models
+        # Approximation: ~1 token per 5 characters or ~0.75 tokens per word
+        estimated_tokens = int((len(words) * 0.75) + (chars / 5)) // 2
 
         return estimated_tokens
 

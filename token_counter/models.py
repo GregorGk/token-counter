@@ -8,6 +8,7 @@ from enum import Enum
 class Provider(Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    GOOGLE = "google"
 
 
 @dataclass
@@ -69,6 +70,14 @@ OPENAI_MODELS: Dict[str, ModelConfig] = {
         input_cost_per_1k=0.003,
         output_cost_per_1k=0.004
     ),
+    "chatgpt-5.2": ModelConfig(
+        name="chatgpt-5.2",
+        provider=Provider.OPENAI,
+        encoding="cl100k_base",
+        max_tokens=256000,
+        input_cost_per_1k=0.02,
+        output_cost_per_1k=0.06
+    ),
 }
 
 # Anthropic model configurations
@@ -80,6 +89,14 @@ ANTHROPIC_MODELS: Dict[str, ModelConfig] = {
         max_tokens=200000,
         input_cost_per_1k=0.015,
         output_cost_per_1k=0.075
+    ),
+    "claude-opus-4.5": ModelConfig(
+        name="claude-opus-4.5",
+        provider=Provider.ANTHROPIC,
+        encoding="claude",
+        max_tokens=500000,
+        input_cost_per_1k=0.012,
+        output_cost_per_1k=0.05
     ),
     "claude-3-sonnet": ModelConfig(
         name="claude-3-sonnet",
@@ -115,10 +132,23 @@ ANTHROPIC_MODELS: Dict[str, ModelConfig] = {
     ),
 }
 
+# Google model configurations
+GOOGLE_MODELS: Dict[str, ModelConfig] = {
+    "gemini-3.0": ModelConfig(
+        name="gemini-3.0",
+        provider=Provider.GOOGLE,
+        encoding="gemini",
+        max_tokens=1048576,  # 1M context window
+        input_cost_per_1k=0.007,
+        output_cost_per_1k=0.021
+    ),
+}
+
 # All supported models
 SUPPORTED_MODELS: Dict[str, ModelConfig] = {
     **OPENAI_MODELS,
-    **ANTHROPIC_MODELS
+    **ANTHROPIC_MODELS,
+    **GOOGLE_MODELS
 }
 
 
