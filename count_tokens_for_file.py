@@ -190,15 +190,17 @@ def main():
         console.print(f"[yellow]Warning: File '{args.file}' is not a .txt file. Proceeding anyway...[/yellow]")
 
     # Read file content
-    console.print(f"[cyan]Reading file:[/cyan] {args.file}")
+    if not args.json and not args.csv:
+        console.print(f"[cyan]Reading file:[/cyan] {args.file}")
     text = read_file(args.file)
 
     # Analyze text
     text_stats = analyze_text(text)
 
     # Count tokens for each model
-    console.print(f"[cyan]Counting tokens for models:[/cyan] {', '.join(TARGET_MODELS)}")
-    console.print()
+    if not args.json and not args.csv:
+        console.print(f"[cyan]Counting tokens for models:[/cyan] {', '.join(TARGET_MODELS)}")
+        console.print()
 
     results = count_tokens_for_models(text, TARGET_MODELS)
 
@@ -210,15 +212,15 @@ def main():
             "text_statistics": text_stats,
             "models": results
         }
-        console.print(json.dumps(output, indent=2))
+        print(json.dumps(output, indent=2))
     elif args.csv:
-        console.print("Model,Tokens,MaxTokens,Usage%,InputCost,OutputCost,TotalCost,ExceedsLimit")
+        print("Model,Tokens,MaxTokens,Usage%,InputCost,OutputCost,TotalCost,ExceedsLimit")
         for model_name in TARGET_MODELS:
             if results.get(model_name):
                 data = results[model_name]
-                console.print(f"{model_name},{data['tokens']},{data['max_tokens']},"
-                            f"{data['percentage_used']},{data['input_cost']},"
-                            f"{data['output_cost']},{data['total_cost']},{data['exceeds_limit']}")
+                print(f"{model_name},{data['tokens']},{data['max_tokens']},"
+                      f"{data['percentage_used']},{data['input_cost']},"
+                      f"{data['output_cost']},{data['total_cost']},{data['exceeds_limit']}")
     else:
         display_results(args.file, text, text_stats, results)
 
